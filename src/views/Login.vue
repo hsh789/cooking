@@ -208,6 +208,19 @@ const handleLogin = async () => {
           })
           ElMessage.success('登录成功')
           router.push('/dashboard')
+        } else if (loginForm.username === 'rjxy' && loginForm.password === '123456') {
+          // 固定账号rjxy
+          userStore.setToken('mock-rjxy-token-123456')
+          userStore.setUserInfo({
+            id: 1,
+            username: 'rjxy',
+            realName: 'rjxy',
+            phone: '13800138000',
+            district: 'all',
+            role: 'admin'
+          })
+          ElMessage.success('登录成功')
+          router.push('/dashboard')
         } else if (loginForm.username === 'admin' && loginForm.password === '123456') {
           // 保留管理员测试账号
           userStore.setToken('mock-admin-token-123456')
