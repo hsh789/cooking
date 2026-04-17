@@ -2,29 +2,34 @@
   <div class="admin-container">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1 class="page-title">子管理员账号管理</h1>
-      <p class="page-desc">管理系统子管理员账号，分配片区权限，监控账号运行状态。</p>
+      <h1 class="page-title">管理员层级管理</h1>
+      <p class="page-desc">管理负责人管理体系：区/县级、街道级、具体负责人。</p>
     </div>
     
     <!-- 统计卡片 -->
     <div class="stats-section">
       <div class="stat-card">
-        <div class="stat-value">{{ adminList.length }}</div>
-        <div class="stat-label">本片区管理员</div>
-        <div class="stat-change">↗ 本月 +2</div>
+        <div class="stat-value">{{ level1Count }}</div>
+        <div class="stat-label">区县级管理</div>
+        <div class="stat-sub-label">区/县级</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{{ adminList.length }}</div>
-        <div class="stat-label">管理片区</div>
-        <div class="stat-sub-label">全部覆盖</div>
+        <div class="stat-value">{{ level2Count }}</div>
+        <div class="stat-label">乡镇街道级管理</div>
+        <div class="stat-sub-label">街道级</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ level3Count }}</div>
+        <div class="stat-label">负责人管理</div>
+        <div class="stat-sub-label">具体负责人</div>
       </div>
     </div>
     
     <!-- 操作栏 -->
     <div class="action-section">
-      <el-button type="primary" @click="handleAddAdmin" class="add-button">
+      <el-button type="primary" @click="handleAddAdmin" class="add-button" :disabled="!canCreateAdmin">
         <el-icon><Plus /></el-icon>
-        新增子管理员
+        新增{{ getNextLevelText() }}管理员
       </el-button>
       <el-button type="success" @click="handleAddDistrict" class="add-button">
         <el-icon><Plus /></el-icon>
@@ -32,7 +37,7 @@
       </el-button>
     </div>
     
-    <!-- 子管理员列表 -->
+    <!-- 管理员列表 -->
     <div class="admin-list">
       <div
         v-for="admin in filteredAdminList"
@@ -45,12 +50,16 @@
             <div class="admin-name">{{ admin.realName }}</div>
             <div class="admin-username">{{ admin.username }}</div>
           </div>
-          <el-tag size="small" type="success">正常</el-tag>
+          <el-tag size="small" :type="getLevelTagType(admin.level)">{{ getLevelText(admin.level) }}</el-tag>
         </div>
         <div class="admin-card-body">
           <div class="admin-detail">
             <span class="detail-label">手机号：</span>
             <span class="detail-value">{{ admin.phone }}</span>
+          </div>
+          <div class="admin-detail">
+            <span class="detail-label">管理级别：</span>
+            <el-tag size="small" :type="getLevelTagType(admin.level)">{{ getLevelText(admin.level) }}</el-tag>
           </div>
           <div class="admin-detail">
             <span class="detail-label">负责片区：</span>
@@ -70,10 +79,10 @@
       </div>
     </div>
     
-    <!-- 添加/编辑子管理员弹窗 -->
+    <!-- 添加/编辑管理员弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogTitle === '添加子管理员' ? '新增管理员账号' : '编辑管理员账号'"
+      :title="dialogTitle === '添加管理员' ? '新增管理员账号' : '编辑管理员账号'"
       width="500px"
       :before-close="handleClose"
     >
@@ -85,6 +94,16 @@
           </el-form-item>
           <el-form-item label="手机号" prop="phone" required>
             <el-input v-model="form.phone" placeholder="请输入手机号" />
+          </el-form-item>
+          <el-form-item label="管理级别" prop="level" required>
+            <el-select v-model="form.level" placeholder="请选择管理级别" style="width: 100%;" :disabled="!!form.id">
+              <el-option
+                v-for="level in availableLevels"
+                :key="level.value"
+                :label="level.label"
+                :value="level.value"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="负责片区" prop="district" required>
             <el-select v-model="form.district" placeholder="请选择负责片区" style="width: 100%;">
@@ -98,6 +117,26 @@
           </el-form-item>
           <el-form-item label="初始密码" prop="password" v-if="!form.id">
             <el-input v-model="form.password" type="password" placeholder="请输入初始密码" show-password />
+          </el-form-item>
+          <el-form-item label="功能权限">
+            <div class="permission-section">
+              <div class="permission-group">
+                <div class="group-title">基础功能</div>
+                <el-checkbox-group v-model="form.permissions">
+                  <el-checkbox label="home">监控仪表盘</el-checkbox>
+                  <el-checkbox label="map">GIS地图监控</el-checkbox>
+                  <el-checkbox label="profile">个人信息</el-checkbox>
+                </el-checkbox-group>
+              </div>
+              <div class="permission-group">
+                <div class="group-title">商户管理</div>
+                <el-checkbox-group v-model="form.permissions">
+                  <el-checkbox label="merchant">商户管理</el-checkbox>
+                  <el-checkbox label="audit">审核中心</el-checkbox>
+                  <el-checkbox label="service-provider">第三方清理商管理</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </div>
           </el-form-item>
         </el-form>
       </div>
@@ -142,13 +181,13 @@ const userInfo = computed(() => userStore.userInfo)
 
 // 权限检查
 onMounted(() => {
-  if (userInfo.value.role !== 'admin') {
+  if (userInfo.value.adminLevel !== 'level1') {
     ElMessage.warning('权限不足，无法访问此页面')
     router.push('/dashboard/map')
   }
 })
 
-// 子管理员列表
+// 管理员列表
 const adminList = ref([
   {
     id: 1,
@@ -156,6 +195,8 @@ const adminList = ref([
     realName: '张三',
     phone: '13800138001',
     district: '开发区',
+    level: 'level1',
+    permissions: ['home', 'map', 'profile', 'merchant', 'audit', 'service-provider'],
     createdAt: '2024-01-15 10:00:00'
   },
   {
@@ -164,18 +205,67 @@ const adminList = ref([
     realName: '李四',
     phone: '13800138002',
     district: '城关镇',
+    level: 'level2',
+    permissions: ['home', 'map', 'profile', 'merchant', 'audit', 'service-provider'],
     createdAt: '2024-01-16 14:30:00'
+  },
+  {
+    id: 3,
+    username: 'admin3',
+    realName: '王五',
+    phone: '13800138003',
+    district: '工业园区',
+    level: 'level3',
+    permissions: ['home', 'map', 'profile', 'merchant', 'audit'],
+    createdAt: '2024-01-17 09:15:00'
   }
 ])
 
-// 管理员列表（直接使用原始列表，不需要筛选）
+// 统计各级管理员数量
+const level1Count = computed(() => adminList.value.filter(a => a.level === 'level1').length)
+const level2Count = computed(() => adminList.value.filter(a => a.level === 'level2').length)
+const level3Count = computed(() => adminList.value.filter(a => a.level === 'level3').length)
+
+// 管理员列表（根据当前用户级别过滤）
 const filteredAdminList = computed(() => {
-  return adminList.value
+  const currentUserLevel = userInfo.value.adminLevel || 'level1'
+  
+  if (currentUserLevel === 'level1') {
+    // 区县级管理：查看所有管理员
+    return adminList.value
+  } else if (currentUserLevel === 'level2') {
+    // 乡镇街道级管理：查看所有管理员
+    return adminList.value
+  } else {
+    // 负责人管理：只能查看自己
+    return adminList.value.filter(a => a.id === userInfo.value.id)
+  }
 })
+
+// 判断是否可以创建管理员
+const canCreateAdmin = computed(() => {
+  const currentUserLevel = userInfo.value.adminLevel || 'level1'
+  return currentUserLevel !== 'level3'
+})
+
+// 获取可创建的级别
+const availableLevels = computed(() => {
+  const currentUserLevel = userInfo.value.adminLevel || 'level1'
+  
+  if (currentUserLevel === 'level1') {
+    // 区县级管理可以创建乡镇街道级管理
+    return [{ label: '乡镇街道级管理（街道级）', value: 'level2' }]
+  } else if (currentUserLevel === 'level2') {
+    // 乡镇街道级管理可以创建负责人管理
+    return [{ label: '负责人管理（具体负责人）', value: 'level3' }]
+  }
+  return []
+})
+
 
 // 弹窗状态
 const dialogVisible = ref(false)
-const dialogTitle = ref('添加子管理员')
+const dialogTitle = ref('添加管理员')
 
 // 表单数据
 const form = ref({
@@ -184,6 +274,8 @@ const form = ref({
   realName: '',
   phone: '',
   district: '',
+  level: '',
+  permissions: [],
   password: ''
 })
 
@@ -215,18 +307,55 @@ const getInitials = (name) => {
 
 // 初始化
 onMounted(() => {
-  // 这里可以添加获取子管理员列表的API调用
+  // 这里可以添加获取管理员列表的API调用
 })
 
-// 打开添加子管理员弹窗
+// 获取管理员级别文本
+const getLevelText = (level) => {
+  const levelMap = {
+    level1: '区县级管理',
+    level2: '乡镇街道级管理',
+    level3: '负责人管理'
+  }
+  return levelMap[level] || '未知'
+}
+
+// 获取管理员级别标签类型
+const getLevelTagType = (level) => {
+  const typeMap = {
+    level1: 'danger',
+    level2: 'warning',
+    level3: 'success'
+  }
+  return typeMap[level] || 'info'
+}
+
+// 获取下区县级管理文本
+const getNextLevelText = () => {
+  const currentUserLevel = userInfo.value.adminLevel || 'level1'
+  
+  if (currentUserLevel === 'level1') {
+    return '二级'
+  } else if (currentUserLevel === 'level2') {
+    return '三级'
+  }
+  return ''
+}
+
+// 打开添加管理员弹窗
 const handleAddAdmin = () => {
-  dialogTitle.value = '添加子管理员'
+  const currentUserLevel = userInfo.value.adminLevel || 'level1'
+  const nextLevel = currentUserLevel === 'level1' ? 'level2' : 'level3'
+  
+  dialogTitle.value = `添加${getLevelText(nextLevel)}`
   form.value = {
     id: '',
     username: '',
     realName: '',
     phone: '',
     district: '',
+    level: nextLevel,
+    permissions: ['home', 'map', 'profile'],
     password: ''
   }
   dialogVisible.value = true
@@ -256,17 +385,20 @@ const handleSaveDistrict = () => {
   districtDialogVisible.value = false
 }
 
-// 打开编辑子管理员弹窗
+// 打开编辑管理员弹窗
 const handleEditAdmin = (row) => {
-  dialogTitle.value = '编辑子管理员'
-  form.value = { ...row }
+  dialogTitle.value = `编辑${getLevelText(row.level)}管理员`
+  form.value = {
+    ...row,
+    permissions: row.permissions || []
+  }
   dialogVisible.value = true
 }
 
-// 删除子管理员
+// 删除管理员
 const handleDeleteAdmin = (row) => {
   ElMessageBox.confirm(
-    `确定要删除子管理员 ${row.realName} 吗？`,
+    `确定要删除管理员 ${row.realName} 吗？`,
     '删除确认',
     {
       confirmButtonText: '确定',
@@ -274,7 +406,7 @@ const handleDeleteAdmin = (row) => {
       type: 'warning'
     }
   ).then(() => {
-    // 这里可以添加删除子管理员的API调用
+    // 这里可以添加删除管理员的API调用
     const index = adminList.value.findIndex(item => item.id === row.id)
     if (index !== -1) {
       adminList.value.splice(index, 1)
@@ -288,22 +420,22 @@ const handleDeleteAdmin = (row) => {
 // 提交表单
 const handleSubmit = () => {
   // 这里可以添加表单验证
-  if (!form.value.realName || !form.value.phone || !form.value.district) {
+  if (!form.value.realName || !form.value.phone || !form.value.district || !form.value.level) {
     ElMessage.warning('请填写完整信息')
     return
   }
   
   if (form.value.id) {
-    // 编辑子管理员
-    // 这里可以添加编辑子管理员的API调用
+    // 编辑管理员
+    // 这里可以添加编辑管理员的API调用
     const index = adminList.value.findIndex(item => item.id === form.value.id)
     if (index !== -1) {
       adminList.value[index] = { ...form.value }
     }
     ElMessage.success('编辑成功')
   } else {
-    // 添加子管理员
-    // 这里可以添加添加子管理员的API调用
+    // 添加管理员
+    // 这里可以添加添加管理员的API调用
     const newAdmin = {
       id: adminList.value.length + 1,
       username: form.value.realName.toLowerCase().replace(/\s/g, ''),
@@ -483,6 +615,7 @@ const handleSubmit = () => {
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
 }
 
 .detail-label {
@@ -524,6 +657,14 @@ const handleSubmit = () => {
 }
 
 /* 弹窗样式 */
+:deep(.el-dialog) {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0 !important;
+}
+
 :deep(.el-dialog__header) {
   border-bottom: 1px solid #f0f0f0;
   padding: 20px 20px 15px;
@@ -537,6 +678,8 @@ const handleSubmit = () => {
 
 :deep(.el-dialog__body) {
   padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 :deep(.el-dialog__footer) {
@@ -572,6 +715,60 @@ const handleSubmit = () => {
 .district-checkbox-group :deep(.el-checkbox) {
   margin-right: 0;
   margin-bottom: 10px;
+}
+
+/* 功能权限选择模块样式 */
+.permission-section {
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 16px;
+  background-color: #f9fafb;
+}
+
+.permission-group {
+  margin-bottom: 20px;
+}
+
+.permission-group:last-child {
+  margin-bottom: 0;
+}
+
+.group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.permission-group :deep(.el-checkbox-group) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.permission-group :deep(.el-checkbox) {
+  margin-right: 0;
+  margin-bottom: 0;
+  padding: 8px 12px;
+  background-color: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.permission-group :deep(.el-checkbox:hover) {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.permission-group :deep(.el-checkbox.is-checked) {
+  background-color: #ecf5ff;
+  border-color: #409eff;
 }
 
 /* 响应式设计 */

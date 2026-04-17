@@ -3,8 +3,8 @@
     <!-- 页面头部 -->
     <div class="page-header-audit">
       <div class="header-left">
-        <h1 class="page-title-audit">监管审核队列</h1>
-        <p class="page-desc-audit">审核工业油烟机清洗记录，确保符合通风规范，并完成商户认证。</p>
+        <h1 class="page-title-audit">油烟清洗审核</h1>
+        <p class="page-desc-audit">审核工业油烟机清洗记录，确保符合通风规范。</p>
       </div>
       <div class="header-right">
         <!-- 右上角小卡片已删除 -->
@@ -56,7 +56,11 @@
               </div>
               <div class="info-cleaner">
                 <el-icon><User /></el-icon>
-                <span>商户主理人电话：{{ item.phone || '待补充' }}</span>
+                <span>负责人：{{ item.contactName || '待补充' }}</span>
+              </div>
+              <div class="info-cleaner">
+                <el-icon><Phone /></el-icon>
+                <span>联系电话：{{ item.phone || '待补充' }}</span>
               </div>
             </div>
 
@@ -127,23 +131,25 @@
       <div class="audit-dialog">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="商家名称">{{ currentAudit.merchantName }}</el-descriptions-item>
-          <el-descriptions-item label="联系人">{{ currentAudit.phone }}</el-descriptions-item>
+          <el-descriptions-item label="负责人姓名">{{ currentAudit.contactName }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ currentAudit.phone || '待补充' }}</el-descriptions-item>
           <el-descriptions-item label="提交时间">{{ currentAudit.submitTime }}</el-descriptions-item>
           
           <!-- 清理方式 -->
           <el-descriptions-item label="清理方式">
             <div class="cleaning-type-display">
-              <!-- 显示商家上传的清理方式 -->
+              <!-- 其他清理方式：前面加第三方清理标签（橙色样式） -->
+              <el-tag v-if="currentAudit.cleaningType === 'other'" type="warning" style="margin-right: 12px;">
+                第三方清理
+              </el-tag>
               <el-tag :type="getCleaningTypeTagType(currentAudit.cleaningType)" size="small" style="margin-right: 12px;">
                 {{ getCleaningTypeLabel(currentAudit.cleaningType) }}
               </el-tag>
-              
-              <!-- 第三方清理时只读显示清洗商名称 -->
-              <span v-if="currentAudit.cleaningType === 'third_party'" class="provider-name-display">
+              <!-- 第三方清理时用特殊标签展示清洗商名称 -->
+              <el-tag v-if="currentAudit.cleaningType === 'third_party'" class="provider-tag" effect="plain">
                 {{ currentAudit.serviceProviderName || '-' }}
-              </span>
-              
-              <!-- 其他清理方式时只读显示输入的清洗商名称 -->
+              </el-tag>
+              <!-- 其他清理方式时用普通文本显示输入的名称 -->
               <span v-if="currentAudit.cleaningType === 'other'" class="provider-name-display">
                 {{ currentAudit.otherProviderName || '-' }}
               </span>
@@ -155,11 +161,25 @@
               {{ getBusinessStatusText(currentAudit.merchantBusinessStatus) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="提交时的清洗情况">
-            <div class="cleaning-info">
-              <div>未清洗天数：<span :class="getDaysClass(currentAudit.merchantDaysSinceLastClean)">{{ currentAudit.merchantDaysSinceLastClean }}天</span></div>
-              <div>剩余天数：<span :class="getDaysClass(currentAudit.frozenDays)">{{ currentAudit.frozenDays }}天</span></div>
-              <div>预警状态：<el-tag :type="getWarningTagType(currentAudit.merchantDaysSinceLastClean)" size="small">{{ getWarningText(currentAudit.merchantDaysSinceLastClean) }}</el-tag></div>
+
+          <!-- 预警状态独立一行 -->
+          <el-descriptions-item label="预警状态">
+            <el-tag :type="getWarningTagType(currentAudit.merchantDaysSinceLastClean)" size="small">
+              {{ getWarningText(currentAudit.merchantDaysSinceLastClean) }}
+            </el-tag>
+          </el-descriptions-item>
+
+          <!-- 红色预警时显示时间比对信息 -->
+          <el-descriptions-item label="时间比对" v-if="currentAudit.merchantDaysSinceLastClean >= CLEANING_CYCLE">
+            <div class="time-compare-info">
+              <div class="time-compare-row">
+                <span class="time-compare-label">上次清洗时间：</span>
+                <span class="time-compare-value highlight">{{ getLastCleanTimeText(currentAudit) }}</span>
+              </div>
+              <div class="time-compare-row">
+                <span class="time-compare-label">本次申请清洗时间：</span>
+                <span class="time-compare-value highlight">{{ currentAudit.submitTime }}</span>
+              </div>
             </div>
           </el-descriptions-item>
           
@@ -240,7 +260,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bell, Plus, Check, Close, Download, Location, Sort, Picture, User, TrendCharts, CircleCheck, Warning, View, Clock } from '@element-plus/icons-vue'
+import { Bell, Plus, Check, Close, Download, Location, Sort, Picture, User, TrendCharts, CircleCheck, Warning, View, Clock, Shop } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -859,9 +879,9 @@ const saveProviderListToStorage = (list) => {
 // 第三方清洗商列表（来自 localStorage 或默认值）
 const providerList = ref(loadProviderListFromStorage())
 
-// 过滤后的审核列表（子管理员只能看到自己区域的审核）
+// 过滤后的审核列表（二级和负责人管理只能看到自己区域的审核）
 const filteredAuditList = computed(() => {
-  if (userInfo.value.role === 'admin') {
+  if (userInfo.value.adminLevel === 'level1') {
     return auditList.value
   }
   return auditList.value.filter(item => item.district === userInfo.value.district)
@@ -973,7 +993,12 @@ const auditVisible = ref(false)
 const currentAudit = ref({})
 const auditRemark = ref('')
 
-// 查看历史弹窗
+// 打开审核弹窗
+const handleAudit = (row) => {
+  currentAudit.value = { ...row }
+  auditRemark.value = ''
+  auditVisible.value = true
+}
 const historyVisible = ref(false)
 const currentAuditHistory = ref([])
 
@@ -1071,13 +1096,6 @@ const handleSizeChange = (size) => {
 
 const handleCurrentChange = (current) => {
   currentPage.value = current
-}
-
-// 审核
-const handleAudit = (row) => {
-  currentAudit.value = { ...row }
-  auditRemark.value = ''
-  auditVisible.value = true
 }
 
 // 查看历史
@@ -1362,6 +1380,19 @@ const getDaysClass = (days) => {
   if (days >= 13) return 'days-warning'
   if (days <= 5) return 'days-safe'
   return ''
+}
+
+// 获取上次清洗时间文本（用于红色预警时间比对）
+const getLastCleanTimeText = (audit) => {
+  const days = audit.merchantDaysSinceLastClean || 0
+  if (days <= 0) return '-'
+  // 根据未清洗天数倒推上次清洗时间
+  const submitDate = new Date(audit.submitTime)
+  submitDate.setDate(submitDate.getDate() - days)
+  const year = submitDate.getFullYear()
+  const month = String(submitDate.getMonth() + 1).padStart(2, '0')
+  const day = String(submitDate.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 </script>
 
@@ -1989,5 +2020,118 @@ const getDaysClass = (days) => {
 
 :deep(.audit-dialog .el-descriptions__content) {
   padding: 12px;
+}
+
+/* 第三方清洗公司特殊标签样式 */
+.provider-tag {
+  border: 1px solid #e4e7ed;
+  background: #fff;
+  color: #409eff;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.provider-tag:hover {
+  background: #ecf5ff;
+}
+
+/* 时间比对信息样式 */
+.time-compare-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.time-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.time-compare-label {
+  color: #909399;
+  white-space: nowrap;
+}
+
+.time-compare-value {
+  color: #303133;
+  font-weight: 500;
+}
+
+.time-compare-value.highlight {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+/* 指派区域样式 */
+.assign-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #fafbfc;
+  border-radius: 10px;
+  border: 1px solid #e4e7ed;
+}
+
+.assign-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.assign-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  background: #e9ecf2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.assign-tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #606266;
+  transition: all 0.25s;
+  position: relative;
+  z-index: 1;
+}
+
+.assign-tab.active {
+  background: #fff;
+  color: #409eff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.assign-tab:hover:not(.active) {
+  color: #409eff;
+}
+
+.assign-body {
+  padding-top: 4px;
+}
+
+.assign-label {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.admin-district-tag {
+  float: right;
+  font-size: 11px;
+  color: #909399;
+  background: #f4f4f5;
+  padding: 1px 8px;
+  border-radius: 10px;
 }
 </style>

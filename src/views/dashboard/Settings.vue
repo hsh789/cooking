@@ -72,9 +72,9 @@ const districtSettings = ref([
   }
 ])
 
-// 过滤后的片区设置（子管理员只能看到自己的片区）
+// 过滤后的片区设置（二级和负责人管理只能看到自己的片区）
 const filteredSettings = computed(() => {
-  if (userInfo.value.role === 'admin') {
+  if (userInfo.value.adminLevel === 'level1') {
     return districtSettings.value
   }
   return districtSettings.value.filter(item => item.district === userInfo.value.district)

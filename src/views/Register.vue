@@ -55,6 +55,18 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="管理员级别" prop="adminLevel">
+          <el-select
+            v-model="registerForm.adminLevel"
+            placeholder="请选择管理员级别"
+            style="width: 100%"
+          >
+            <el-option label="区县级管理（区/县级）" value="level1" />
+            <el-option label="乡镇街道级管理（街道级）" value="level2" />
+            <el-option label="负责人管理（具体负责人）" value="level3" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="密码" prop="password">
           <el-input
             v-model="registerForm.password"
@@ -112,6 +124,7 @@ const registerForm = reactive({
   realName: '',
   phone: '',
   district: '',
+  adminLevel: '',
   password: '',
   confirmPassword: ''
 })
@@ -139,6 +152,9 @@ const registerRules = {
   ],
   district: [
     { required: true, message: '请选择负责片区', trigger: 'change' }
+  ],
+  adminLevel: [
+    { required: true, message: '请选择管理员级别', trigger: 'change' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -174,8 +190,8 @@ const handleRegister = async () => {
           realName: registerForm.realName,
           phone: registerForm.phone,
           district: registerForm.district,
-          password: registerForm.password,
-          role: 'grid' // 默认角色为网格员
+          adminLevel: registerForm.adminLevel,
+          password: registerForm.password
         }
         
         // 保存到本地存储

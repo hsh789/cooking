@@ -35,7 +35,8 @@ export const generateMockMerchants = (count = 400) => {
     return {
       id: i + 1,
       name: `餐饮商户${i + 1}`,
-      owner: `负责人${i + 1}`,
+      ownerName: `负责人${i + 1}`,
+      owner: `138${String(Math.floor(10000000 + Math.random() * 90000000)).padStart(8, '0')}`,
       phone: `138${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
       address: `${districtNames[districtIndex]}美食街${i + 1}号`,
       district: districtValues[districtIndex],
@@ -46,7 +47,9 @@ export const generateMockMerchants = (count = 400) => {
       lastCleanTime: new Date(Date.now() - daysSinceLastClean * 24 * 60 * 60 * 1000).toLocaleString('zh-CN'),
       lng: 116.397 + (Math.random() - 0.5) * 0.1,
       lat: 39.908 + (Math.random() - 0.5) * 0.1,
-      createTime: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toLocaleString('zh-CN')
+      createTime: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toLocaleString('zh-CN'),
+      businessLicense: 'https://via.placeholder.com/200x280/1e3a5f/ffffff?text=营业执照',
+      doorPhoto: 'https://via.placeholder.com/140x100/e8f5e9/2e7d32?text=门头照'
     }
   })
 }

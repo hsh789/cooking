@@ -34,7 +34,7 @@
           type="text"
           placeholder="按公司名称或服务区域筛选..."
           class="search-input-new"
-        />
+        >
       </div>
     </div>
 
@@ -104,6 +104,9 @@
             <div class="action-btns">
               <el-icon class="action-icon-new edit" @click="handleEditProvider(provider)"><EditPen /></el-icon>
               <el-icon v-if="isAdmin" class="action-icon-new delete" @click="handleDeleteProvider(provider)"><DeleteFilled /></el-icon>
+              <el-tooltip content="操作记录" placement="top" :show-after="300">
+                <el-icon class="action-icon-new history" @click="handleViewOperationLog(provider)"><Clock /></el-icon>
+              </el-tooltip>
             </div>
           </div>
         </div>
@@ -247,13 +250,66 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 操作记录弹窗 -->
+    <el-dialog
+      v-model="operationLogVisible"
+      :title="`操作记录 - ${currentProvider.name || ''}`"
+      width="620px"
+      top="15vh"
+      class="operation-log-dialog"
+    >
+      <div class="operation-log-content">
+        <!-- 基本信息卡片 -->
+        <div class="log-provider-info">
+          <div class="log-info-avatar" :style="{ background: getLogoColor(0) }">
+            {{ currentProvider.name ? getInitials(currentProvider.name) : '' }}
+          </div>
+          <div class="log-info-text">
+            <h4>{{ currentProvider.name }}</h4>
+            <p>ID: PRV-2024-{{ String(currentProvider.id).padStart(3, '0') }} · {{ getDistrictLabel(currentProvider.district) }}</p>
+          </div>
+          <el-tag type="info" size="small">共 {{ operationLogs.length }} 条记录</el-tag>
+        </div>
+
+        <!-- 时间线 -->
+        <div v-if="operationLogs.length > 0" class="log-timeline">
+          <div
+            v-for="(log, index) in operationLogs"
+            :key="index"
+            class="log-timeline-item"
+          >
+            <div class="timeline-dot" :class="getLogDotClass(log.type)">
+              <el-icon><component :is="getLogIcon(log.type)" /></el-icon>
+            </div>
+            <div class="timeline-line" v-if="index < operationLogs.length - 1"></div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-action" :class="getLogActionClass(log.type)">{{ getLogActionText(log.type) }}</span>
+                <span class="timeline-time">{{ log.time }}</span>
+              </div>
+              <p class="timeline-desc">{{ log.description }}</p>
+              <div v-if="log.operator" class="timeline-operator">
+                操作人：{{ log.operator }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 无记录时 -->
+        <el-empty v-else description="暂无操作记录" />
+      </div>
+      <template #footer>
+        <el-button @click="operationLogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Upload, View, Download, ArrowRight, Search, Filter, Sort, StarFilled, EditPen, DeleteFilled } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Upload, View, Download, ArrowRight, Search, Filter, Sort, StarFilled, EditPen, DeleteFilled, Clock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -343,12 +399,12 @@ const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = 5
 
-// 过滤后的服务商列表（子管理员只能看到自己区域的服务商）
+// 过滤后的服务商列表（二级和三级管理员只能看到自己区域的服务商）
 const filteredProviders = computed(() => {
   let result = providerList.value
 
-  // 子管理员只能看到自己区域的服务商
-  if (userInfo.value.role !== 'admin' && userInfo.value.district) {
+  // 二级和三级管理员只能看到自己区域的服务商
+  if (userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
     result = result.filter(item => item.district === userInfo.value.district)
   }
 
@@ -431,6 +487,10 @@ const dialogTitle = ref('添加清洗商')
 const licenseDialogVisible = ref(false)
 const currentProvider = ref({})
 
+// 操作记录弹窗
+const operationLogVisible = ref(false)
+const operationLogs = ref([])
+
 // 表单数据
 const form = ref({
   id: '',
@@ -505,6 +565,96 @@ const handleDeleteProvider = (row) => {
 const handleViewLicense = (row) => {
   currentProvider.value = { ...row }
   licenseDialogVisible.value = true
+}
+
+// 查看操作记录
+const handleViewOperationLog = (row) => {
+  currentProvider.value = { ...row }
+  // 根据清洗商ID生成模拟操作记录
+  operationLogs.value = generateOperationLogs(row.id)
+  operationLogVisible.value = true
+}
+
+// 生成操作记录（模拟数据）
+const generateOperationLogs = (providerId) => {
+  const baseRecords = [
+    { type: 'create', time: '2024-01-15 10:00:00', description: `新增第三方清洗商「${currentProvider.value.name}」`, operator: '管理员' },
+    { type: 'edit', time: '2024-01-20 14:30:00', description: '修改了联系人信息和联系电话', operator: '张区管' },
+    { type: 'audit', time: '2024-02-05 09:15:00', description: '营业执照审核通过，服务片区确认为开发区', operator: '区县级管理' },
+    { type: 'service', time: '2024-03-10 16:20:00', description: '完成阳光咖啡馆油烟机清洗服务（第1次）', operator: '系统自动' },
+    { type: 'service', time: '2024-04-02 11:45:00', description: '完成开发区KTV油烟机清洗服务（第2次）', operator: '系统自动' },
+    { type: 'edit', time: '2024-04-12 10:30:00', description: '修改了服务片区为开发区', operator: '李区管' },
+  ]
+
+  // 根据providerId做差异化处理，让每个清洗商的记录不同
+  const extraRecords = []
+  if (providerId === 1) {
+    extraRecords.push(
+      { type: 'service', time: '2024-04-15 13:30:00', description: '完成城关镇饭店油烟机清洗服务（第3次）', operator: '系统自动' },
+      { type: 'warning', time: '2024-04-17 09:00:00', description: '商户投诉响应超时，已标记待跟进', operator: '系统自动' }
+    )
+  } else if (providerId === 2) {
+    extraRecords.push({ type: 'audit', time: '2024-04-08 11:00:00', description: '年度资质复核审核通过', operator: '区县级管理' })
+  } else if (providerId === 3) {
+    extraRecords.push(
+      { type: 'edit', time: '2024-04-14 15:00:00', description: '更新营业执照图片', operator: '王区管' },
+      { type: 'service', time: '2024-04-16 10:30:00', description: '完成时尚服装店油烟机清洗服务（第1次）', operator: '系统自动' }
+    )
+  }
+
+  return [...baseRecords, ...extraRecords]
+}
+
+// 获取操作类型对应的图标
+const getLogIcon = (type) => {
+  const iconMap = {
+    create: 'Plus',
+    edit: 'EditPen',
+    delete: 'DeleteFilled',
+    audit: 'CircleCheck',
+    service: 'Shop',
+    warning: 'Warning'
+  }
+  return iconMap[type] || 'Document'
+}
+
+// 获取时间线圆点样式类
+const getLogDotClass = (type) => {
+  const classMap = {
+    create: 'dot-create',
+    edit: 'dot-edit',
+    delete: 'dot-delete',
+    audit: 'dot-audit',
+    service: 'dot-service',
+    warning: 'dot-warning'
+  }
+  return classMap[type] || 'dot-default'
+}
+
+// 获取操作文字样式类
+const getLogActionClass = (type) => {
+  const classMap = {
+    create: 'action-create',
+    edit: 'action-edit',
+    delete: 'action-delete',
+    audit: 'action-audit',
+    service: 'action-service',
+    warning: 'action-warning'
+  }
+  return classMap[type] || ''
+}
+
+// 获取操作文字文本
+const getLogActionText = (type) => {
+  const textMap = {
+    create: '新增录入',
+    edit: '信息修改',
+    delete: '删除移除',
+    audit: '审核操作',
+    service: '服务记录',
+    warning: '异常提醒'
+  }
+  return textMap[type] || '未知操作'
 }
 
 // 提交表单
@@ -1002,6 +1152,14 @@ const handleExportLicense = () => {
   color: #dc2626;
 }
 
+.action-icon-new.history {
+  color: #8b5cf6;
+}
+
+.action-icon-new.history:hover {
+  color: #7c3aed;
+}
+
 /* 列表底部 */
 .list-footer {
   display: flex;
@@ -1222,5 +1380,158 @@ const handleExportLicense = () => {
   .col-action {
     display: none;
   }
+}
+
+/* ========== 操作记录弹窗样式 ========== */
+
+.operation-log-content {
+  padding: 4px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* 清洗商基本信息卡片 */
+.log-provider-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.log-info-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.log-info-text {
+  flex: 1;
+}
+
+.log-info-text h4 {
+  margin: 0 0 3px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.log-info-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* 时间线容器 */
+.log-timeline {
+  position: relative;
+  padding-left: 28px;
+}
+
+/* 时间线单项 */
+.log-timeline-item {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.log-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+/* 时间线圆点 */
+.timeline-dot {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  z-index: 2;
+  color: #fff;
+}
+
+.timeline-dot.dot-create { background: #10b981; }
+.timeline-dot.dot-edit { background: #3b82f6; }
+.timeline-dot.dot-delete { background: #ef4444; }
+.timeline-dot.dot-audit { background: #8b5cf6; }
+.timeline-dot.dot-service { background: #f59e0b; }
+.timeline-dot.dot-warning { background: #ec4899; }
+.timeline-dot.dot-default { background: #9ca3af; }
+
+/* 时间线连接线 */
+.timeline-line {
+  position: absolute;
+  left: -17px;
+  top: 26px;
+  width: 2px;
+  bottom: -2px;
+  background: #e2e8f0;
+}
+
+/* 时间线内容区 */
+.timeline-body {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.timeline-body:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.timeline-action {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.timeline-action.action-create { color: #059669; }
+.timeline-action.action-edit { color: #2563eb; }
+.timeline-action.action-delete { color: #dc2626; }
+.timeline-action.action-audit { color: #7c3aed; }
+.timeline-action.action-service { color: #d97706; }
+.timeline-action.action-warning { color: #db2777; }
+
+.timeline-time {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.timeline-desc {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.timeline-operator {
+  font-size: 11px;
+  color: #94a3b8;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
 }
 </style>

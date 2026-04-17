@@ -8,16 +8,22 @@
           <div class="profile-header">
             <el-avatar :size="80" :icon="UserFilled" />
             <h3>{{ userInfo.username || '用户' }}</h3>
-            <el-tag type="warning" size="small">{{ userInfo.role === 'admin' ? '总管理员' : '子管理员' }}</el-tag>
-            <p v-if="userInfo.role !== 'admin'">{{ userInfo.district || '未分配片区' }}</p>
+            <el-tag type="warning" size="small">{{ getAdminLevelText(userInfo.adminLevel) }}</el-tag>
+            <p v-if="userInfo.adminLevel !== 'level1'">{{ userInfo.district || '未分配片区' }}</p>
           </div>
           
           <!-- 功能标签 -->
           <div class="profile-tags">
-            <template v-if="userInfo.role === 'admin'">
+            <template v-if="userInfo.adminLevel === 'level1'">
               <el-tag size="small" type="info">全量数据删除</el-tag>
               <el-tag size="small" type="info">全局地图监控</el-tag>
               <el-tag size="small" type="info">账号分配</el-tag>
+              <el-tag size="small" type="info">商户管理</el-tag>
+              <el-tag size="small" type="info">清洗商管理</el-tag>
+            </template>
+            <template v-else-if="userInfo.adminLevel === 'level2'">
+              <el-tag size="small" type="info">商家导入与管理</el-tag>
+              <el-tag size="small" type="info">审核清洗记录</el-tag>
               <el-tag size="small" type="info">商户管理</el-tag>
               <el-tag size="small" type="info">清洗商管理</el-tag>
             </template>
@@ -25,8 +31,7 @@
               <el-tag size="small" type="info">商家导入与管理</el-tag>
               <el-tag size="small" type="info">审核清洗记录</el-tag>
               <el-tag size="small" type="info">片区参数设置</el-tag>
-              <el-tag size="small" type="info">清洗商管理</el-tag>
-              <el-tag size="small" type="info">地图监控</el-tag>
+              <el-tag size="small" type="info">商户管理</el-tag>
             </template>
           </div>
           
@@ -45,13 +50,13 @@
               </div>
             </div>
             <div class="info-row">
-              <div class="info-item" v-if="userInfo.role !== 'admin'">
+              <div class="info-item" v-if="userInfo.adminLevel !== 'level1'">
                 <el-icon><Location /></el-icon>
                 <span>负责片区：{{ userInfo.district || '开发区全域' }}</span>
               </div>
-              <div class="info-item" @click="handleRoleSetting" :class="{ 'full-width': userInfo.role === 'admin' }">
+              <div class="info-item" @click="handleRoleSetting" :class="{ 'full-width': userInfo.adminLevel === 'level1' }">
                 <el-icon><User /></el-icon>
-                <span>账号类型：{{ userInfo.role === 'admin' ? '总管理员' : '子管理员' }}</span>
+                <span>账号类型：{{ getAdminLevelText(userInfo.adminLevel) }}</span>
                 <el-icon class="edit-icon"><Edit /></el-icon>
               </div>
             </div>
@@ -133,8 +138,8 @@
           </div>
         </el-card>
 
-        <!-- 片区参数设置 - 仅子管理员显示 -->
-        <el-card class="district-settings-card" v-if="userInfo.role !== 'admin'">
+        <!-- 片区参数设置 - 仅负责人管理显示 -->
+        <el-card class="district-settings-card" v-if="userInfo.adminLevel === 'level3'">
           <template #header>
             <div class="card-header">
               <span>片区参数设置</span>
@@ -229,13 +234,14 @@
     <!-- 角色设置弹窗 -->
     <el-dialog v-model="roleVisible" title="设置账号类型" width="400px">
       <el-form ref="roleFormRef" :model="roleForm" label-width="80px">
-        <el-form-item label="账号类型" prop="role">
-          <el-radio-group v-model="roleForm.role">
-            <el-radio label="admin">总管理员</el-radio>
-            <el-radio label="sub">子管理员</el-radio>
+        <el-form-item label="账号类型" prop="adminLevel">
+          <el-radio-group v-model="roleForm.adminLevel">
+            <el-radio label="level1">区县级管理（区/县级）</el-radio>
+            <el-radio label="level2">乡镇街道级管理（街道级）</el-radio>
+            <el-radio label="level3">负责人管理（具体负责人）</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="负责片区" prop="district" v-if="roleForm.role === 'sub'">
+        <el-form-item label="负责片区" prop="district" v-if="roleForm.adminLevel !== 'level1'">
           <el-select v-model="roleForm.district" placeholder="请选择负责片区" style="width: 100%">
             <el-option label="城关镇" value="town" />
             <el-option label="开发区" value="development" />
@@ -308,7 +314,7 @@ const handleSaveDistrictSettings = async () => {
 const roleVisible = ref(false)
 const roleFormRef = ref(null)
 const roleForm = reactive({
-  role: '',
+  adminLevel: '',
   district: ''
 })
 
@@ -422,9 +428,19 @@ const handlePasswordSubmit = async () => {
   })
 }
 
+// 获取管理员级别文本
+const getAdminLevelText = (level) => {
+  const levelMap = {
+    level1: '区县级管理（区/县级）',
+    level2: '乡镇街道级管理（街道级）',
+    level3: '负责人管理（具体负责人）'
+  }
+  return levelMap[level] || '未知级别'
+}
+
 // 打开角色设置弹窗
 const handleRoleSetting = () => {
-  roleForm.role = userInfo.value.role || 'admin'
+  roleForm.adminLevel = userInfo.value.adminLevel || 'level1'
   roleForm.district = userInfo.value.district || ''
   roleVisible.value = true
 }
@@ -432,7 +448,7 @@ const handleRoleSetting = () => {
 // 提交角色设置
 const handleRoleSubmit = () => {
   // 这里可以添加表单验证
-  if (roleForm.role === 'sub' && !roleForm.district) {
+  if (roleForm.adminLevel !== 'level1' && !roleForm.district) {
     ElMessage.warning('请选择负责片区')
     return
   }
@@ -440,7 +456,7 @@ const handleRoleSubmit = () => {
   // 调用API保存角色设置
   userStore.setUserInfo({
     ...userInfo.value,
-    role: roleForm.role,
+    adminLevel: roleForm.adminLevel,
     district: roleForm.district
   })
   

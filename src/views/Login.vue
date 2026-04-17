@@ -22,17 +22,24 @@
         <div class="role-tabs">
           <div 
             class="role-tab" 
-            :class="{ active: activeRole === 'admin' }"
-            @click="activeRole = 'admin'"
+            :class="{ active: activeRole === 'level1' }"
+            @click="activeRole = 'level1'"
           >
-            区/县管理员
+            区县级管理
           </div>
           <div 
             class="role-tab" 
-            :class="{ active: activeRole === 'subadmin' }"
-            @click="activeRole = 'subadmin'"
+            :class="{ active: activeRole === 'level2' }"
+            @click="activeRole = 'level2'"
           >
-            子管理员
+            乡镇街道级
+          </div>
+          <div 
+            class="role-tab" 
+            :class="{ active: activeRole === 'level3' }"
+            @click="activeRole = 'level3'"
+          >
+            负责人管理
           </div>
         </div>
 
@@ -162,7 +169,7 @@ const userStore = useUserStore()
 
 const loginFormRef = ref(null)
 const loading = ref(false)
-const activeRole = ref('admin')
+const activeRole = ref('level1')
 const showPassword = ref(false)
 const rememberPassword = ref(false)
 
@@ -204,12 +211,12 @@ const handleLogin = async () => {
             realName: user.realName,
             phone: user.phone,
             district: user.district,
-            role: user.role
+            adminLevel: activeRole.value
           })
           ElMessage.success('登录成功')
           router.push('/dashboard')
         } else if (loginForm.username === 'rjxy' && loginForm.password === '123456') {
-          // 固定账号rjxy
+          // 固定账号rjxy - 区县级管理
           userStore.setToken('mock-rjxy-token-123456')
           userStore.setUserInfo({
             id: 1,
@@ -217,12 +224,12 @@ const handleLogin = async () => {
             realName: 'rjxy',
             phone: '13800138000',
             district: 'all',
-            role: 'admin'
+            adminLevel: 'level1'
           })
           ElMessage.success('登录成功')
           router.push('/dashboard')
         } else if (loginForm.username === 'admin' && loginForm.password === '123456') {
-          // 保留管理员测试账号
+          // 保留管理员测试账号 - 区县级管理
           userStore.setToken('mock-admin-token-123456')
           userStore.setUserInfo({
             id: 1,
@@ -230,7 +237,33 @@ const handleLogin = async () => {
             realName: '系统管理员',
             phone: '13800138000',
             district: 'all',
-            role: 'admin'
+            adminLevel: 'level1'
+          })
+          ElMessage.success('登录成功')
+          router.push('/dashboard')
+        } else if (loginForm.username === 'level2' && loginForm.password === '123456') {
+          // 乡镇街道级管理测试账号
+          userStore.setToken('mock-level2-token-123456')
+          userStore.setUserInfo({
+            id: 1,
+            username: 'level2',
+            realName: '乡镇街道级管理',
+            phone: '13800138000',
+            district: 'all',
+            adminLevel: 'level2'
+          })
+          ElMessage.success('登录成功')
+          router.push('/dashboard')
+        } else if (loginForm.username === 'level3' && loginForm.password === '123456') {
+          // 负责人管理测试账号
+          userStore.setToken('mock-level3-token-123456')
+          userStore.setUserInfo({
+            id: 1,
+            username: 'level3',
+            realName: '负责人管理',
+            phone: '13800138000',
+            district: 'all',
+            adminLevel: 'level3'
           })
           ElMessage.success('登录成功')
           router.push('/dashboard')

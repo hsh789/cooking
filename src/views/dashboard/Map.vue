@@ -45,12 +45,8 @@
             <span>立即整改</span>
           </div>
           <div class="legend-item">
-            <span class="legend-dot blue-dot"></span>
-            <span>临时关门</span>
-          </div>
-          <div class="legend-item">
             <span class="legend-dot gray-dot"></span>
-            <span>已停业</span>
+            <span>歇业中</span>
           </div>
         </div>
 
@@ -95,15 +91,10 @@
                   @click="setBusinessStatus('all')"
                 >全部</el-button>
                 <el-button 
-                  :type="filter.businessStatus === 'closed' ? 'primary' : 'default'" 
+                  :type="filter.businessStatus === 'closed' || filter.businessStatus === 'suspended' ? 'primary' : 'default'" 
                   size="small"
                   @click="setBusinessStatus('closed')"
-                >临时关门</el-button>
-                <el-button 
-                  :type="filter.businessStatus === 'suspended' ? 'primary' : 'default'" 
-                  size="small"
-                  @click="setBusinessStatus('suspended')"
-                >已停业</el-button>
+                >歇业中</el-button>
               </div>
             </div>
           </div>
@@ -812,7 +803,10 @@ const filterMerchants = () => {
     const merchantBusinessStatus = merchant.businessStatus
     
     const warningMatch = !filterByWarning || warningLevel === merchantWarningLevel
-    const businessMatch = !filterByBusiness || businessStatus === merchantBusinessStatus
+    // "歇业中" 同时匹配 closed 和 suspended 状态
+    const businessMatch = !filterByBusiness || 
+      (businessStatus === 'closed' && (merchantBusinessStatus === 'closed' || merchantBusinessStatus === 'suspended')) ||
+      (businessStatus !== 'closed' && businessStatus === merchantBusinessStatus)
     
     return warningMatch && businessMatch
   })
@@ -880,8 +874,8 @@ const initMap = () => {
 }
 
 const getMarkerColor = (merchant) => {
-  if (merchant.businessStatus === 'suspended') return '#909399'
-  if (merchant.businessStatus === 'closed') return '#409eff'
+  if (merchant.businessStatus === 'suspended') return '#9ca3af'
+  if (merchant.businessStatus === 'closed') return '#9ca3af'
   if (merchant.daysSinceLastClean >= 15) return '#f56c6c'
   if (merchant.daysSinceLastClean >= 13) return '#ff8c00ee'
   return '#10b981'
@@ -1205,7 +1199,7 @@ onBeforeUnmount(() => {
 }
 
 .map-legend-new .blue-dot {
-  background: #409eff;
+  background: #9ca3af;
 }
 
 /* 筛选浮动面板 */

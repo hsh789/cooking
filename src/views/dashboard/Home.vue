@@ -131,11 +131,11 @@
             </div>
             <el-icon class="arrow"><ArrowRight /></el-icon>
           </div>
-          <div class="action-btn secondary" @click="handleExport">
+          <div class="action-btn secondary" @click="handleCreateAudit">
             <div class="btn-icon">
-              <el-icon><Download /></el-icon>
+              <el-icon><DocumentAdd /></el-icon>
             </div>
-            <div class="btn-text">数据导出</div>
+            <div class="btn-text">油烟清洗审核</div>
             <el-icon class="arrow"><ArrowRight /></el-icon>
           </div>
         </div>
@@ -190,13 +190,16 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Calendar, ArrowUp, Warning, CircleClose,
-  Upload, Download, ArrowRight, InfoFilled
+  Upload, Download, ArrowRight, InfoFilled, DocumentAdd
 } from '@element-plus/icons-vue'
 import { getGlobalMerchants } from '@/utils/mock'
 import { useUserStore } from '@/stores/user'
+
+const router = useRouter()
 
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
@@ -238,8 +241,8 @@ const loadMerchantStats = () => {
   // 直接从mock获取所有商户数据（与商户管理页面使用同一数据源）
   let merchants = getGlobalMerchants()
 
-  // 子管理员只能查看自己区域的商户
-  if (userInfo.value.role === 'sub' && userInfo.value.district) {
+  // 二级和负责人管理只能查看自己区域的商户
+  if (userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
     merchants = merchants.filter(m => m.district === userInfo.value.district)
   }
 
@@ -269,8 +272,8 @@ const stats = computed(() => loadMerchantStats())
 const gaugeData = computed(() => {
   let merchants = getGlobalMerchants()
 
-  // 子管理员只能查看自己区域的商户
-  if (userInfo.value.role === 'sub' && userInfo.value.district) {
+  // 二级和负责人管理只能查看自己区域的商户
+  if (userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
     merchants = merchants.filter(m => m.district === userInfo.value.district)
   }
 
@@ -327,8 +330,9 @@ const handleBatchImport = () => {
   ElMessage.info('批量导入功能开发中')
 }
 
-const handleExport = () => {
-  ElMessage.info('数据导出功能开发中')
+const handleCreateAudit = () => {
+  router.push('/dashboard/audit')
+  ElMessage.info('已跳转到审核中心')
 }
 </script>
 

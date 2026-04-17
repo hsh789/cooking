@@ -98,9 +98,6 @@
           <el-button type="success" @click="handleImport">
             <el-icon><Upload /></el-icon>批量导入
           </el-button>
-          <el-button type="info" @click="handleExport">
-            <el-icon><Download /></el-icon>导出数据
-          </el-button>
         </div>
       </div>
 
@@ -113,10 +110,11 @@
             {{ districtManagerMap[row.district]?.name || '-' }}
           </template>
         </el-table-column>
-        <!-- 新增负责人电话列 -->
-        <el-table-column label="负责人电话" width="120">
+        <!-- 新增负责人信息列（显示店铺负责人名字+电话） -->
+        <el-table-column label="负责人电话" width="160">
           <template #default="{ row }">
-            {{ isAdmin ? (districtManagerMap[row.district]?.phone || '-') : userInfo.phone }}
+            <div>{{ row.ownerName || '-' }}</div>
+            <div style="color: #909399; font-size: 12px;">{{ row.owner || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="phone" label="主理人电话" width="120" />
@@ -143,10 +141,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastCleanTime" label="最近清洗" width="160" />
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleView(row)">查看</el-button>
             <el-button type="success" link @click="handleViewHistory(row)">查看历史</el-button>
+            <el-tooltip content="商户信息" placement="top" :show-after="300">
+              <el-button type="info" link @click="handleViewModificationLog(row)">
+                <el-icon><Clock /></el-icon>
+              </el-button>
+            </el-tooltip>
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
@@ -247,6 +250,9 @@
         <el-form-item label="商户名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入商户名称" />
         </el-form-item>
+        <el-form-item label="负责人名称" prop="ownerName">
+          <el-input v-model="formData.ownerName" placeholder="请输入负责人名称" />
+        </el-form-item>
         <el-form-item label="负责人电话" prop="owner">
           <el-input v-model="formData.owner" placeholder="请输入负责人电话" />
         </el-form-item>
@@ -268,6 +274,27 @@
             <el-option label="临时关门" value="closed" />
             <el-option label="已停业" value="stopped" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="门头照片" prop="doorPhoto">
+          <el-upload
+            class="upload-demo"
+            action="#"
+            :auto-upload="false"
+            :on-change="handleDoorPhotoChange"
+            :limit="1"
+            :file-list="fileList"
+            accept="image/*"
+          >
+            <el-button type="primary">
+              <el-icon><Upload /></el-icon>
+              上传照片
+            </el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                请上传门头照片，支持 JPG、PNG 格式，大小不超过 5MB
+              </div>
+            </template>
+          </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -295,11 +322,11 @@
               <el-icon><QuestionFilled /></el-icon>
             </el-tooltip>
           </div>
-          <el-select 
-            v-model="importDistrict" 
-            placeholder="请选择片区" 
+          <el-select
+            v-model="importDistrict"
+            placeholder="请选择片区"
             style="width: 100%"
-            :disabled="userInfo.role === 'sub'"
+            :disabled="userInfo.adminLevel !== 'level1'"
           >
             <el-option 
               v-for="item in districtOptions" 
@@ -308,9 +335,9 @@
               :value="item.value" 
             />
           </el-select>
-          <div v-if="userInfo.role === 'sub'" class="district-hint">
+          <div v-if="userInfo.adminLevel !== 'level1'" class="district-hint">
             <el-icon><InfoFilled /></el-icon>
-            <span>子管理员导入的商户将自动归属到您负责的【{{ getDistrictLabel(userInfo.district) }}】片区</span>
+            <span>二级/负责人管理导入的商户将自动归属到您负责的【{{ getDistrictLabel(userInfo.district) }}】片区</span>
           </div>
         </div>
 
@@ -384,8 +411,12 @@
             <span class="detail-value">{{ viewFormData.name }}</span>
           </div>
           <div class="detail-row">
+            <span class="detail-label">负责人：</span>
+            <span class="detail-value">{{ viewFormData.ownerName || viewFormData.owner || '-' }}</span>
+          </div>
+          <div class="detail-row">
             <span class="detail-label">负责人电话：</span>
-            <span class="detail-value">{{ viewFormData.owner }}</span>
+            <span class="detail-value">{{ viewFormData.owner || '-' }}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">主理人电话：</span>
@@ -409,20 +440,140 @@
               {{ getStatusText(viewFormData.status) }}
             </el-tag>
           </div>
+          <!-- 营业执照和门头照 -->
+          <div class="detail-row detail-photo-section">
+            <span class="detail-label">商户证件：</span>
+            <div class="photo-grid">
+              <div class="photo-item">
+                <el-image v-if="viewFormData.businessLicense"
+                  :src="viewFormData.businessLicense"
+                  :preview-src-list="[viewFormData.businessLicense]"
+                  fit="cover"
+                  class="merchant-photo"
+                  preview-teleported />
+                <div v-else class="photo-placeholder">
+                  <el-icon><Picture /></el-icon>
+                  <span>营业执照</span>
+                </div>
+              </div>
+              <div class="photo-item">
+                <el-image v-if="viewFormData.doorPhoto"
+                  :src="viewFormData.doorPhoto"
+                  :preview-src-list="[viewFormData.doorPhoto]"
+                  fit="cover"
+                  class="merchant-photo"
+                  preview-teleported />
+                <div v-else class="photo-placeholder">
+                  <el-icon><Picture /></el-icon>
+                  <span>门头照</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </transition>
+
+    <!-- 商户信息弹窗（开店/关门记录） -->
+    <el-dialog
+      v-model="modificationLogVisible"
+      :title="`商户信息 - ${currentMerchant?.name || ''}`"
+      width="700px"
+      align-center
+      class="merchant-info-dialog"
+    >
+      <div class="merchant-info-content">
+        <!-- 商户基本信息卡片 -->
+        <div class="merchant-header-card">
+          <div class="merchant-avatar-section">
+            <div class="merchant-avatar" :style="{ background: getMerchantLogoColor(0) }">
+              {{ currentMerchant?.name ? getInitials(currentMerchant.name) : '' }}
+            </div>
+            <div class="merchant-basic-info">
+              <h3 class="merchant-name">{{ currentMerchant?.name }}</h3>
+              <p class="merchant-id">ID: MCH-2024-{{ String(currentMerchant?.id || '').padStart(3, '0') }}</p>
+            </div>
+          </div>
+          <div class="merchant-stats">
+            <div class="stat-item">
+              <div class="stat-icon open">
+                <el-icon><CircleCheck /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ merchantDoorRecords.filter(r => r.type === 'open').length }}</div>
+                <div class="stat-label">开门记录</div>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon close">
+                <el-icon><CircleClose /></el-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ merchantDoorRecords.filter(r => r.type === 'close').length }}</div>
+                <div class="stat-label">关门记录</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 开门/关门记录列表 -->
+        <div v-if="merchantDoorRecords.length > 0" class="records-section">
+          <div class="section-title">
+            <el-icon><Clock /></el-icon>
+            <span>营业记录</span>
+          </div>
+          <div class="records-list">
+            <div
+              v-for="(record, index) in merchantDoorRecords"
+              :key="index"
+              class="record-card"
+              :class="record.type"
+            >
+              <div class="record-left">
+                <div class="record-icon-wrapper" :class="record.type">
+                  <el-icon><component :is="record.type === 'open' ? CircleCheck : CircleClose" /></el-icon>
+                </div>
+                <div class="record-info">
+                  <div class="record-title">{{ record.type === 'open' ? '开门' : '关门' }}</div>
+                  <div class="record-status">{{ record.type === 'open' ? '营业开始' : '营业结束' }}</div>
+                </div>
+              </div>
+              <div class="record-right">
+                <div class="record-time">{{ record.time }}</div>
+                <div class="record-date">{{ record.date || '今天' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 无记录时 -->
+        <div v-else class="empty-state">
+          <el-empty description="暂无营业记录">
+            <template #image>
+              <div class="empty-icon">
+                <el-icon size="60"><Clock /></el-icon>
+              </div>
+            </template>
+          </el-empty>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="modificationLogVisible = false" size="large">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Close, Download, QuestionFilled, InfoFilled, Upload } from '@element-plus/icons-vue'
+import { Close, Download, QuestionFilled, InfoFilled, Upload, CircleCheck, CircleClose, Clock, Picture } from '@element-plus/icons-vue'
 import { getMerchantList, addMerchant, updateMerchant, deleteMerchant, getMerchantStats } from '@/api/merchant'
 import { useUserStore } from '@/stores/user'
 import { clearMerchantCache } from '@/utils/mock'
 
+const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
 const isAdmin = computed(() => userInfo.value.role === 'admin')
@@ -500,6 +651,11 @@ const historyDialogVisible = ref(false)
 const currentHistoryMerchant = ref(null)
 const merchantHistoryList = ref([])
 
+// 修改记录弹窗
+const modificationLogVisible = ref(false)
+const currentMerchant = ref({})
+const merchantDoorRecords = ref([])
+
 const buildHistoryPhotos = (merchantId, round) => {
   return Array.from({ length: 3 }, (_, index) => {
     const width = 420 + round * 5 + index
@@ -542,38 +698,54 @@ const viewDrawerVisible = ref(false)
 const viewFormData = ref({
   id: '',
   name: '',
+  ownerName: '',
   owner: '',
   phone: '',
   address: '',
   longitude: '',
   latitude: '',
-  status: 'open'
+  status: 'open',
+  openTime: '2024-01-15 08:30:00',
+  closeTime: '2024-01-15 22:00:00',
+  businessLicense: '',
+  doorPhoto: ''
 })
 const submitLoading = ref(false)
 const formRef = ref(null)
 const formData = reactive({
   id: null,
   name: '',
+  ownerName: '',
   owner: '',
   phone: '',
   address: '',
   longitude: '',
   latitude: '',
-  status: 'open'
+  status: 'open',
+  doorPhoto: ''
 })
+
+// 文件上传
+const fileList = ref([])
+
+const handleDoorPhotoChange = (file, fileList) => {
+  formData.doorPhoto = file.raw
+}
 
 const formRules = {
   name: [{ required: true, message: '请输入商户名称', trigger: 'blur' }],
-  owner: [{ required: true, message: '请输入负责人姓名', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
+  ownerName: [{ required: true, message: '请输入负责人名称', trigger: 'blur' }],
+  owner: [{ required: true, message: '请输入负责人电话', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
+  address: [{ required: true, message: '请输入详细地址', trigger: 'blur' }]
 }
 
 // 获取统计数据
 const fetchStats = async () => {
   try {
     const params = {}
-    // 子管理员只能查看自己区域的统计数据
-    if (userInfo.value.role === 'sub' && userInfo.value.district) {
+    // 非区县级管理只能查看自己区域的统计数据
+    if (userInfo.value.adminLevel && userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
       params.district = userInfo.value.district
     }
     const res = await getMerchantStats(params)
@@ -592,8 +764,8 @@ const fetchList = async () => {
       pageSize: pagination.pageSize,
       ...searchForm
     }
-    // 子管理员只能查看自己区域的商户
-    if (userInfo.value.role === 'sub' && userInfo.value.district) {
+    // 非区县级管理只能查看自己区域的商户
+    if (userInfo.value.adminLevel && userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
       params.district = userInfo.value.district
     }
     const res = await getMerchantList(params)
@@ -619,6 +791,144 @@ const handleReset = () => {
   searchForm.warningLevel = ''
   pagination.page = 1
   fetchList()
+}
+
+// 商户申请
+const handleMerchantApply = () => {
+  router.push('/dashboard/merchant-apply')
+}
+
+// 查看修改记录
+const handleViewModificationLog = (row) => {
+  currentMerchant.value = { ...row }
+  // 生成模拟的商户开店/关门记录
+  merchantDoorRecords.value = generateDoorRecords(row.id, row.name)
+  modificationLogVisible.value = true
+}
+
+// 生成商户开门/关门记录（每次一条）
+const generateDoorRecords = (merchantId, merchantName) => {
+  const records = []
+  const baseDate = new Date(2026, 3, 10)
+  for (let i = 0; i < 7; i++) {
+    const openDate = new Date(baseDate.getTime() + i * 86400000)
+    const closeHour = 21 + Math.floor(Math.random() * 3)
+    records.push(
+      {
+        type: 'open',
+        time: `${openDate.getFullYear()}/${String(openDate.getMonth() + 1).padStart(2, '0')}/${String(openDate.getDate()).padStart(2, '0')} 08:${String(Math.floor(Math.random() * 15)).padStart(2, '0')}00`
+      },
+      {
+        type: 'close',
+        time: `${openDate.getFullYear()}/${String(openDate.getMonth() + 1).padStart(2, '0')}/${String(openDate.getDate()).padStart(2, '0')} ${closeHour}:30`
+      }
+    )
+  }
+  return records.reverse()
+}
+
+// 生成修改记录（从localStorage加载真实数据）
+const generateModificationLogs = (merchantId) => {
+  const modificationKey = `merchant_modifications_${merchantId}`
+  const storedModifications = JSON.parse(localStorage.getItem(modificationKey) || '[]')
+
+  // 如果有真实数据，返回真实数据
+  if (storedModifications.length > 0) {
+    return storedModifications
+  }
+
+  // 如果没有真实数据，返回模拟数据
+  const baseRecords = [
+    { type: 'create', time: '2024-01-15 10:00:00', description: `新增商户「${currentMerchant.value.name}」`, operator: '管理员', operatorLevel: 'level1' },
+    { type: 'edit', time: '2024-02-20 14:30:00', description: '修改了负责人电话和主理人电话', operator: '张区管', operatorLevel: 'level2' },
+    { type: 'edit', time: '2024-03-10 16:20:00', description: '修改了营业状态为营业中', operator: '李区管', operatorLevel: 'level2' },
+    { type: 'edit', time: '2024-04-05 09:15:00', description: '修改了地址信息', operator: '王负责人', operatorLevel: 'level3' },
+    { type: 'edit', time: '2024-04-15 11:45:00', description: '修改了经纬度坐标', operator: '赵负责人', operatorLevel: 'level3' },
+  ]
+
+  // 根据merchantId做差异化处理，让每个商户的记录不同
+  const extraRecords = []
+  if (merchantId === 1) {
+    extraRecords.push(
+      { type: 'edit', time: '2024-04-20 13:30:00', description: '修改了负责人姓名', operator: '刘区管', operatorLevel: 'level2' },
+      { type: 'warning', time: '2024-04-22 09:00:00', description: '商户信息异常，已标记待跟进', operator: '系统自动', operatorLevel: '' }
+    )
+  } else if (merchantId === 2) {
+    extraRecords.push({ type: 'edit', time: '2024-04-18 11:00:00', description: '修改了营业状态', operator: '区县级管理', operatorLevel: 'level1' })
+  } else if (merchantId === 3) {
+    extraRecords.push(
+      { type: 'edit', time: '2024-04-19 15:00:00', description: '更新商户基本信息', operator: '孙区管', operatorLevel: 'level2' },
+      { type: 'edit', time: '2024-04-21 10:30:00', description: '修改了联系电话', operator: '周负责人', operatorLevel: 'level3' }
+    )
+  }
+
+  return [...baseRecords, ...extraRecords]
+}
+
+// 获取管理员级别文本
+const getAdminLevelText = (level) => {
+  const levelMap = {
+    level1: '区县级管理',
+    level2: '乡镇街道级管理',
+    level3: '负责人管理'
+  }
+  return levelMap[level] || '未知'
+}
+
+// 获取操作类型对应的图标
+const getLogIcon = (type) => {
+  const iconMap = {
+    create: 'Plus',
+    edit: 'EditPen',
+    delete: 'DeleteFilled',
+    warning: 'Warning'
+  }
+  return iconMap[type] || 'Document'
+}
+
+// 获取时间线圆点样式类
+const getLogDotClass = (type) => {
+  const classMap = {
+    create: 'dot-create',
+    edit: 'dot-edit',
+    delete: 'dot-delete',
+    warning: 'dot-warning'
+  }
+  return classMap[type] || 'dot-default'
+}
+
+// 获取操作文字样式类
+const getLogActionClass = (type) => {
+  const classMap = {
+    create: 'action-create',
+    edit: 'action-edit',
+    delete: 'action-delete',
+    warning: 'action-warning'
+  }
+  return classMap[type] || ''
+}
+
+// 获取操作文字文本
+const getLogActionText = (type) => {
+  const textMap = {
+    create: '新增录入',
+    edit: '信息修改',
+    delete: '删除移除',
+    warning: '异常提醒'
+  }
+  return textMap[type] || '未知操作'
+}
+
+// 获取商户Logo颜色
+const getMerchantLogoColor = (index) => {
+  const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399']
+  return colors[index % colors.length]
+}
+
+// 获取姓名首字母
+const getInitials = (name) => {
+  if (!name) return 'M'
+  return name.substring(0, 2).toUpperCase()
 }
 
 // 新增
@@ -647,7 +957,11 @@ const handleEdit = (row) => {
 // 查看
 const handleView = (row) => {
   viewDrawerVisible.value = true
-  viewFormData.value = { ...row }
+  viewFormData.value = { 
+    ...row,
+    openTime: `${new Date().toLocaleDateString('zh-CN')} 08:30:00`,
+    closeTime: `${new Date().toLocaleDateString('zh-CN')} 22:00:00`
+  }
 }
 
 // 查看历史
@@ -755,21 +1069,43 @@ const handleSubmit = async () => {
       try {
         if (formData.id) {
           await updateMerchant(formData.id, formData)
-          ElMessage.success('编辑成功')
+          ElMessage.success('修改成功')
+          // 记录修改操作
+          recordModification(formData.id, 'edit', `修改了商户「${formData.name}」的信息`)
         } else {
           await addMerchant(formData)
           ElMessage.success('新增成功')
+          // 记录新增操作
+          recordModification(formData.id, 'create', `新增商户「${formData.name}」`)
         }
         dialogVisible.value = false
         fetchList()
         fetchStats()
       } catch (error) {
         console.error('提交失败:', error)
+        ElMessage.error('操作失败')
       } finally {
         submitLoading.value = false
       }
     }
   })
+}
+
+// 记录修改操作
+const recordModification = (merchantId, type, description) => {
+  const modificationKey = `merchant_modifications_${merchantId}`
+  const existingModifications = JSON.parse(localStorage.getItem(modificationKey) || '[]')
+
+  const newModification = {
+    type,
+    time: new Date().toLocaleString('zh-CN'),
+    description,
+    operator: userInfo.value.username || '未知',
+    operatorLevel: userInfo.value.adminLevel || 'level1'
+  }
+
+  existingModifications.unshift(newModification)
+  localStorage.setItem(modificationKey, JSON.stringify(existingModifications))
 }
 
 // 导入对话框
@@ -787,8 +1123,8 @@ const districtOptions = [
 
 // 打开导入对话框
 const handleImport = () => {
-  // 子管理员默认使用自己的片区
-  if (userInfo.value.role === 'sub' && userInfo.value.district) {
+  // 二级和负责人管理默认使用自己的片区
+  if (userInfo.value.adminLevel !== 'level1' && userInfo.value.district) {
     importDistrict.value = userInfo.value.district
   } else {
     importDistrict.value = ''
@@ -1173,6 +1509,93 @@ onMounted(() => {
   line-height: 1.6;
 }
 
+/* 开门关门记录样式 */
+.door-record-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 照片区域样式 */
+.detail-photo-section {
+  align-items: flex-start !important;
+}
+
+.photo-grid {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-item {
+  width: 120px;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.merchant-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+}
+
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
+.photo-placeholder .el-icon {
+  font-size: 24px;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.record-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateX(4px);
+}
+
+.record-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.record-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  min-width: 70px;
+}
+
+.record-time {
+  font-size: 14px;
+  color: #334155;
+  font-weight: 500;
+  margin-left: auto;
+}
+
 /* 右侧滑入动画 */
 .slide-from-right-enter-active,
 .slide-from-right-leave-active {
@@ -1403,5 +1826,472 @@ onMounted(() => {
 
 .template-btn {
   align-self: flex-start;
+}
+
+/* ========== 修改记录弹窗样式 ========== */
+
+/* 弹窗整体：固定居中，不随页面滚动 */
+.modification-log-dialog :deep(.el-dialog) {
+  margin: 0 auto !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 限制弹窗body高度，内部滚动 */
+.modification-log-dialog :deep(.el-dialog__body) {
+  padding: 16px 20px 8px !important;
+  max-height: 35vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.modification-log-content {
+  padding: 4px 0;
+}
+
+/* 商户信息弹窗样式 */
+.merchant-info-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
+.merchant-info-content {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* 商户头部卡片 */
+.merchant-header-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.merchant-avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.merchant-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.merchant-basic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.merchant-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.merchant-id {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* 商户统计 */
+.merchant-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f9fafb;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.stat-icon.open {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.stat-icon.close {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 记录区域 */
+.records-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.record-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.record-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.record-card.open {
+  border-color: #d1fae5;
+  background: linear-gradient(to right, #ecfdf5, #fff);
+}
+
+.record-card.close {
+  border-color: #fee2e2;
+  background: linear-gradient(to right, #fef2f2, #fff);
+}
+
+.record-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.record-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.record-icon-wrapper.open {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.record-icon-wrapper.close {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.record-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.record-status {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.record-right {
+  text-align: right;
+}
+
+.record-time {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.record-date {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* 空状态 */
+.empty-state {
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  color: #cbd5e1;
+}
+
+/* 旧样式保留 */
+.log-merchant-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.log-info-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.log-info-text {
+  flex: 1;
+}
+
+.log-info-text h4 {
+  margin: 0 0 3px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.log-info-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* 时间线容器 */
+.log-timeline {
+  position: relative;
+  padding-left: 28px;
+}
+
+/* 时间线单项 */
+.log-timeline-item {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.log-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+/* 时间线圆点 */
+.timeline-dot {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  z-index: 2;
+  color: #fff;
+}
+
+.timeline-dot.dot-create { background: #10b981; }
+.timeline-dot.dot-edit { background: #3b82f6; }
+.timeline-dot.dot-delete { background: #ef4444; }
+.timeline-dot.dot-warning { background: #ec4899; }
+.timeline-dot.dot-default { background: #9ca3af; }
+
+/* 时间线连接线 */
+.timeline-line {
+  position: absolute;
+  left: -17px;
+  top: 26px;
+  width: 2px;
+  bottom: -2px;
+  background: #e2e8f0;
+}
+
+/* 时间线内容区 */
+.timeline-body {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.timeline-body:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.timeline-action {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.timeline-action.action-create { color: #059669; }
+.timeline-action.action-edit { color: #2563eb; }
+.timeline-action.action-delete { color: #dc2626; }
+.timeline-action.action-warning { color: #db2777; }
+
+.timeline-time {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.timeline-desc {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.timeline-operator {
+  font-size: 11px;
+  color: #94a3b8;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* 开门/关门记录列表样式（旧样式保留） */
+.door-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.door-record-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fafbfc;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.door-record-item.open {
+  border-left-color: #67c23a;
+  background: #f0f9eb;
+}
+
+.door-record-item.close {
+  border-left-color: #f56c6c;
+  background: #fef0f0;
+}
+
+.door-record-item:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.record-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.record-icon-wrap.open {
+  background: #e1f3d8;
+  color: #67c23a;
+}
+
+.record-icon-wrap.close {
+  background: #fde2e2;
+  color: #f56c6c;
+}
+
+.record-body {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.record-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.record-time {
+  font-size: 13px;
+  color: #909399;
 }
 </style>

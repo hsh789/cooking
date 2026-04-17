@@ -17,18 +17,6 @@
         </div>
       </div>
 
-      <!-- 发起审核按钮 -->
-      <div class="audit-btn-wrapper">
-        <el-button 
-          type="primary" 
-          class="audit-btn"
-          @click="handleCreateAudit"
-        >
-          <el-icon><Plus /></el-icon>
-          <span>发起审核</span>
-        </el-button>
-      </div>
-
       <!-- 菜单 -->
       <el-menu
         :default-active="activeMenu"
@@ -38,22 +26,52 @@
         text-color="#a0aec0"
         active-text-color="#fff"
       >
+        <!-- 首页 -->
         <el-menu-item index="/dashboard/home">
           <el-icon><HomeFilled /></el-icon>
           <span>首页</span>
         </el-menu-item>
-        <el-menu-item index="/dashboard/merchant">
-          <el-icon><Shop /></el-icon>
-          <span>商户管理</span>
+        <!-- 商户管理（父级菜单） -->
+        <el-sub-menu index="merchant">
+          <template #title>
+            <el-icon><Shop /></el-icon>
+            <span>商户管理</span>
+          </template>
+          <el-menu-item index="/dashboard/merchant">
+            <el-icon><List /></el-icon>
+            <span>商户列表</span>
+          </el-menu-item>
+          <el-menu-item index="/dashboard/merchant-apply">
+            <el-icon><DocumentAdd /></el-icon>
+            <span>商户申请</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/dashboard/audit">
+          <el-icon><DocumentChecked /></el-icon>
+          <span>油烟清洗审核</span>
         </el-menu-item>
         <el-menu-item index="/dashboard/map">
           <el-icon><MapLocation /></el-icon>
           <span>监控地图</span>
         </el-menu-item>
-        <el-menu-item index="/dashboard/admin" v-if="userInfo.role === 'admin'">
-          <el-icon><UserFilled /></el-icon>
-          <span>子管理员管理</span>
-        </el-menu-item>
+        <el-sub-menu index="permission" v-if="userInfo.adminLevel === 'level1'">
+          <template #title>
+            <el-icon><UserFilled /></el-icon>
+            <span>权限管理</span>
+          </template>
+          <el-menu-item index="/dashboard/admin/user">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/dashboard/admin/role">
+            <el-icon><Avatar /></el-icon>
+            <span>角色管理</span>
+          </el-menu-item>
+          <el-menu-item index="/dashboard/admin/menu">
+            <el-icon><Menu /></el-icon>
+            <span>菜单管理</span>
+          </el-menu-item>
+        </el-sub-menu>
         <el-menu-item index="/dashboard/service-provider">
           <el-icon><Tools /></el-icon>
           <span>清理商管理</span>
@@ -68,7 +86,7 @@
         </div>
         <div class="user-info-text">
           <div class="user-name">{{ userInfo.realName || '管理员' }}</div>
-          <div class="user-role">{{ userInfo.role === 'admin' ? '总管理员' : '子管理员' }}</div>
+          <div class="user-role">{{ getAdminLevelText(userInfo.adminLevel) }}</div>
         </div>
       </div>
     </div>
@@ -162,9 +180,10 @@
                     <el-tag v-if="msg.merchantName" size="small" :type="getMessageTagType(msg.type)" class="msg-tag">
                       {{ msg.merchantName }}
                     </el-tag>
-                    <span class="msg-action-link" v-if="msg.type === 'upload'">查看审核 →</span>
+                    <span class="msg-action-link" v-if="msg.category === 'merchant'">查看申请 →</span>
+                    <span class="msg-action-link" v-else-if="msg.type === 'upload'">查看审核 →</span>
                     <span class="msg-action-link" v-else-if="msg.type === 'audit_approved' || msg.type === 'audit_rejected'">查看完整反馈 →</span>
-                    <span class="msg-action-link" v-else-if="msg.type === 'warning'">打开商户页面 →</span>
+                    <span class="msg-action-link" v-else>打开商户页面 →</span>
                   </div>
                 </div>
               </div>
@@ -192,7 +211,7 @@
 import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { UserFilled, Location, Shop, Message, Check, Setting, Tools, OfficeBuilding, Bell, Upload, Delete, Document, Plus, HomeFilled, DocumentChecked, MapLocation, User, SwitchButton, Search, List, QuestionFilled, Warning, CircleCheck } from '@element-plus/icons-vue'
+import { UserFilled, Location, Shop, Message, Check, Setting, Tools, OfficeBuilding, Bell, Upload, Delete, Document, Plus, HomeFilled, DocumentChecked, MapLocation, User, SwitchButton, Search, List, QuestionFilled, Warning, CircleCheck, DataAnalysis, Avatar, DocumentAdd } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -215,9 +234,11 @@ const searchText = ref('')
 
 // 消息列表（模拟数据）
 const messageList = ref([
+  // ===== 清洗审核消息 =====
   {
     id: 'MSG001',
     type: 'upload',
+    category: 'audit',
     title: '清理申请待审核',
     content: '美味小厨餐厅提交了清理申请，等待您审核。',
     merchantName: '美味小厨餐厅',
@@ -229,6 +250,7 @@ const messageList = ref([
   {
     id: 'MSG002',
     type: 'upload',
+    category: 'audit',
     title: '清理申请待审核',
     content: '时尚服装店提交了清理申请，等待您审核。',
     merchantName: '时尚服装店',
@@ -240,6 +262,7 @@ const messageList = ref([
   {
     id: 'MSG003',
     type: 'upload',
+    category: 'audit',
     title: '清理申请待审核',
     content: '城关镇饭店提交了清理申请，等待您审核。',
     merchantName: '城关镇饭店',
@@ -248,9 +271,45 @@ const messageList = ref([
     merchantId: 'M008',
     auditId: 'A2024003'
   },
+  // ===== 商户注册申请消息 =====
+  {
+    id: 'MSG006',
+    type: 'merchant_apply',
+    category: 'merchant',
+    title: '新商户入驻申请',
+    content: '「美味小厨餐厅」提交了自主注册申请，请及时审核。',
+    merchantName: '美味小厨餐厅',
+    time: '5分钟前',
+    isRead: false,
+    merchantId: 'M001'
+  },
+  {
+    id: 'MSG007',
+    type: 'merchant_apply',
+    category: 'merchant',
+    title: '新商户入驻申请',
+    content: '「开发区大酒店」提交了自主注册申请，请及时审核。',
+    merchantName: '开发区大酒店',
+    time: '40分钟前',
+    isRead: false,
+    merchantId: 'M005'
+  },
+  {
+    id: 'MSG008',
+    type: 'merchant_apply',
+    category: 'merchant',
+    title: '新商户入驻申请',
+    content: '「城关镇饭店」提交了自主注册申请，请及时审核。',
+    merchantName: '城关镇饭店',
+    time: '昨天',
+    isRead: true,
+    merchantId: 'M008'
+  },
+  // ===== 原有消息（已读）=====
   {
     id: 'MSG004',
     type: 'upload',
+    category: 'audit',
     title: '清理申请待审核',
     content: '开发区大酒店提交了清理申请，等待您审核。',
     merchantName: '开发区大酒店',
@@ -262,6 +321,7 @@ const messageList = ref([
   {
     id: 'MSG005',
     type: 'upload',
+    category: 'audit',
     title: '清理申请待审核',
     content: '健康养生馆提交了清理申请，等待您审核。',
     merchantName: '健康养生馆',
@@ -277,15 +337,32 @@ const unreadCount = computed(() => {
   return messageList.value.filter(msg => !msg.isRead).length
 })
 
-// 过滤后的消息列表（只显示审核相关消息）
+// 过滤后的消息列表（包含审核消息 + 商户申请消息）
 const filteredMessageList = computed(() => {
-  const auditTypes = ['upload', 'audit_approved', 'audit_rejected']
-  const auditMessages = messageList.value.filter(msg => auditTypes.includes(msg.type))
+  const validTypes = ['upload', 'audit_approved', 'audit_rejected', 'merchant_apply']
+  const validMessages = messageList.value.filter(msg => validTypes.includes(msg.type))
+
+  // 根据管理员级别过滤消息
+  const filteredByLevel = validMessages.filter(msg => {
+    // 区县级管理可以看到所有消息
+    if (userInfo.value.adminLevel === 'level1') {
+      return true
+    }
+    // 乡镇街道级管理可以看到审核消息和商户申请消息
+    if (userInfo.value.adminLevel === 'level2') {
+      return msg.category === 'audit' || msg.category === 'merchant'
+    }
+    // 负责人管理只能看到审核消息
+    if (userInfo.value.adminLevel === 'level3') {
+      return msg.category === 'audit'
+    }
+    return true
+  })
 
   if (activeMessageTab.value === 'unread') {
-    return auditMessages.filter(msg => !msg.isRead)
+    return filteredByLevel.filter(msg => !msg.isRead)
   }
-  return auditMessages
+  return filteredByLevel
 })
 
 // 获取消息图标
@@ -295,7 +372,8 @@ const getMessageIcon = (type) => {
     audit_approved: Check,
     audit_rejected: Delete,
     warning: Bell,
-    system: Document
+    system: Document,
+    merchant_apply: Shop
   }
   return iconMap[type] || Document
 }
@@ -307,7 +385,8 @@ const getMessageIconClass = (type) => {
     audit_approved: 'icon-approved',
     audit_rejected: 'icon-rejected',
     warning: 'icon-warning',
-    system: 'icon-system'
+    system: 'icon-system',
+    merchant_apply: 'icon-merchant'
   }
   return classMap[type] || 'icon-system'
 }
@@ -319,7 +398,8 @@ const getMessageTagType = (type) => {
     audit_approved: 'success',
     audit_rejected: 'danger',
     warning: 'warning',
-    system: 'info'
+    system: 'info',
+    merchant_apply: ''
   }
   return typeMap[type] || 'info'
 }
@@ -331,7 +411,8 @@ const getMessageBorderClass = (type) => {
     audit_approved: 'border-approved',
     audit_rejected: 'border-rejected',
     warning: 'border-warning',
-    system: 'border-system'
+    system: 'border-system',
+    merchant_apply: 'border-merchant'
   }
   return classMap[type] || 'border-system'
 }
@@ -341,7 +422,7 @@ const handleOpenMessage = () => {
   messageDrawerVisible.value = true
 }
 
-// 读取消息
+// 读取消息（根据类型跳转不同页面）
 const handleReadMessage = (msg) => {
   // 标记为已读
   const index = messageList.value.findIndex(item => item.id === msg.id)
@@ -349,10 +430,18 @@ const handleReadMessage = (msg) => {
     messageList.value[index].isRead = true
   }
 
-  // 所有审核消息都跳转到审核中心
-  router.push('/dashboard/audit')
-  messageDrawerVisible.value = false
-  ElMessage.info('已跳转到审核中心')
+  // 根据消息分类跳转
+  if (msg.category === 'merchant') {
+    // 商户申请消息 → 跳转商户申请页面
+    router.push('/dashboard/merchant-apply')
+    messageDrawerVisible.value = false
+    ElMessage.info('已跳转到商户申请审核')
+  } else {
+    // 审核消息 → 跳转审核中心
+    router.push('/dashboard/audit')
+    messageDrawerVisible.value = false
+    ElMessage.info('已跳转到审核中心')
+  }
 }
 
 // 全部标为已读
@@ -381,6 +470,16 @@ const handleClearAll = () => {
   })
 }
 
+// 获取管理员级别文本
+const getAdminLevelText = (level) => {
+  const levelMap = {
+    level1: '区县级管理（区/县级）',
+    level2: '乡镇街道级管理（街道级）',
+    level3: '负责人管理（具体负责人）'
+  }
+  return levelMap[level] || '未知级别'
+}
+
 const currentPageTitle = computed(() => {
   const titles = {
     '/dashboard': '监控仪表盘',
@@ -389,11 +488,11 @@ const currentPageTitle = computed(() => {
     '/dashboard/merchant': '商户管理',
     '/dashboard/sms-log': '短信日志',
     '/dashboard/audit': '审核中心',
-    '/dashboard/admin': '子管理员管理',
+    '/dashboard/admin': '管理员层级管理',
     '/dashboard/service-provider': '清理商管理',
     '/dashboard/profile': '个人信息'
   }
-  return titles[route.path] || '餐饮油烟净化智慧监管平台'
+  return titles[route.path] || '监控仪表盘'
 })
 
 // 跳转到个人信息页面
@@ -493,29 +592,7 @@ const handleLogout = () => {
   margin-top: 2px;
 }
 
-/* 发起审核按钮 */
-.audit-btn-wrapper {
-  padding: 0 16px 16px;
-  flex-shrink: 0;
-}
 
-.audit-btn {
-  width: 100%;
-  height: 44px;
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-  border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.audit-btn:hover {
-  background: linear-gradient(135deg, #e85a2a 0%, #e88418 100%);
-}
 
 /* 侧边栏菜单 */
 .sidebar-menu {
@@ -547,6 +624,17 @@ const handleLogout = () => {
 }
 
 .sidebar-menu :deep(.el-menu-item .el-icon) {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  height: 44px;
+  line-height: 44px;
+  padding: 0 12px !important;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title .el-icon) {
   margin-right: 10px;
   font-size: 18px;
 }
@@ -821,6 +909,10 @@ const handleLogout = () => {
   background: linear-gradient(180deg, #64748b 0%, #475569 100%);
 }
 
+.msg-left-border.border-merchant {
+  background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
 .msg-content-wrapper {
   flex: 1;
   padding: 20px;
@@ -1016,4 +1108,12 @@ const handleLogout = () => {
 .help-btn:hover {
   background-color: #1e40af !important;
 }
+
+/* 消息图标颜色 */
+.icon-upload { color: #f97316; }
+.icon-approved { color: #22c55e; }
+.icon-rejected { color: #ef4444; }
+.icon-warning { color: #dc2626; }
+.icon-system { color: #64748b; }
+.icon-merchant { color: #8b5cf6; }
 </style>

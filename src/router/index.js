@@ -50,6 +50,12 @@ const routes = [
         meta: { requiresAuth: true, title: '商户管理' }
       },
       {
+        path: 'merchant-apply',
+        name: 'MerchantApply',
+        component: () => import('@/views/dashboard/MerchantApply.vue'),
+        meta: { requiresAuth: true, title: '商户申请审核' }
+      },
+      {
         path: 'sms-log',
         name: 'SmsLog',
         component: () => import('@/views/dashboard/SmsLog.vue'),
@@ -64,8 +70,26 @@ const routes = [
       {
         path: 'admin',
         name: 'Admin',
-        component: () => import('@/views/dashboard/Admin.vue'),
-        meta: { requiresAuth: true, title: '子管理员管理' }
+        redirect: '/dashboard/admin/user',
+        meta: { requiresAuth: true, title: '权限管理' }
+      },
+      {
+        path: 'admin/role',
+        name: 'AdminRole',
+        component: () => import('@/views/dashboard/AdminRole.vue'),
+        meta: { requiresAuth: true, title: '角色管理' }
+      },
+      {
+        path: 'admin/user',
+        name: 'AdminUser',
+        component: () => import('@/views/dashboard/AdminUser.vue'),
+        meta: { requiresAuth: true, title: '用户管理' }
+      },
+      {
+        path: 'admin/menu',
+        name: 'AdminMenu',
+        component: () => import('@/views/dashboard/AdminMenu.vue'),
+        meta: { requiresAuth: true, title: '菜单管理' }
       },
       {
         path: 'settings',
