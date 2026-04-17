@@ -43,7 +43,7 @@
         <el-table-column prop="createdAt" label="创建时间" width="180" />
         <el-table-column label="操作" fixed="right" width="150">
           <template #default="{ row }">
-            <el-button type="text" @click="handleEditAdmin(row)">编辑</el-button>
+            <el-button type="text" @click="handleEditUser(row)">编辑</el-button>
             <el-button type="text" @click="handleDeleteAdmin(row)" style="color: #F56C6C;">删除</el-button>
           </template>
         </el-table-column>
@@ -167,21 +167,30 @@ const roleList = ref([
   },
   {
     id: 2,
-    name: '乡镇街道级管理',
-    code: 'LEVEL2',
+    name: '区县级管理',
+    code: 'level1',
     sort: 2,
     status: 0,
-    level: 'level2',
-    permissions: ['home', 'map', 'merchant', 'merchant:list', 'audit', 'audit:list']
+    level: 'level1',
+    permissions: ['home', 'merchant', 'merchant:list', 'merchant:add', 'merchant:edit', 'merchant:delete', 'merchant:import', 'merchant-apply', 'merchant-apply:audit', 'merchant-apply:assign', 'map', 'audit', 'audit:list', 'audit:approve', 'audit:reject', 'service-provider', 'service-provider:list', 'service-provider:add', 'service-provider:edit', 'admin', 'admin:role', 'admin:user']
   },
   {
     id: 3,
-    name: '负责人管理',
-    code: 'LEVEL3',
+    name: '乡镇街道级管理',
+    code: 'level2',
     sort: 3,
     status: 0,
+    level: 'level2',
+    permissions: ['home', 'merchant', 'merchant:list', 'merchant:add', 'merchant:edit', 'merchant:delete', 'merchant:import', 'merchant-apply', 'merchant-apply:audit', 'merchant-apply:assign', 'map', 'audit', 'audit:list', 'audit:approve', 'audit:reject', 'service-provider', 'service-provider:list', 'service-provider:add', 'service-provider:edit']
+  },
+  {
+    id: 4,
+    name: '负责人管理',
+    code: 'level3',
+    sort: 4,
+    status: 0,
     level: 'level3',
-    permissions: ['home', 'map', 'merchant', 'merchant:list']
+    permissions: ['home', 'merchant', 'merchant:list', 'merchant:edit', 'map', 'audit', 'audit:list', 'audit:approve', 'audit:reject']
   }
 ])
 

@@ -14,7 +14,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-value">{{ approvedCount }}</div>
-        <div class="stat-label">已通过</div>
+        <div class="stat-label">已审核</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">{{ rejectedCount }}</div>
@@ -50,7 +50,7 @@
         </el-table-column>
         <el-table-column label="操作" fixed="right" width="120" align="center">
           <template #default="{ row }">
-            <el-button type="text" @click="handleViewDetail(row)" size="small">审核</el-button>
+            <el-button v-if="row.status === 'pending'" type="text" @click="handleViewDetail(row)" size="small">审核</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -115,7 +115,7 @@
 
           <!-- 直接指派：选择负责人管理 -->
           <div v-if="assignMode === 'direct'" class="assign-body">
-            <div class="assign-label">选择三级负责人：</div>
+            <div class="assign-label">选择直接负责人：</div>
             <el-select v-model="selectedLevel3Admin" placeholder="请选择负责该商户的负责人管理" style="width: 100%;" filterable>
               <el-option
                 v-for="admin in level3Admins"
@@ -331,7 +331,7 @@ const getStatusTagType = (status) => {
 const getStatusText = (status) => {
   const textMap = {
     pending: '待审核',
-    approved: '已通过',
+    approved: '已审核',
     rejected: '已拒绝',
     assigned: '已指派',
     delegated: '已下转'

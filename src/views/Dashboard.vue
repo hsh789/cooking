@@ -486,9 +486,13 @@ const currentPageTitle = computed(() => {
     '/dashboard/home': '监控仪表盘',
     '/dashboard/map': 'GIS地图监控',
     '/dashboard/merchant': '商户管理',
+    '/dashboard/merchant-apply': '商户申请',
     '/dashboard/sms-log': '短信日志',
-    '/dashboard/audit': '审核中心',
+    '/dashboard/audit': '油烟清洗审核',
     '/dashboard/admin': '管理员层级管理',
+    '/dashboard/admin/user': '用户管理',
+    '/dashboard/admin/role': '角色管理',
+    '/dashboard/admin/menu': '菜单管理',
     '/dashboard/service-provider': '清理商管理',
     '/dashboard/profile': '个人信息'
   }

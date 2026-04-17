@@ -65,8 +65,7 @@
         <el-form-item label="营业状态">
           <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 140px">
             <el-option label="营业中" value="open" />
-            <el-option label="临时关门" value="closed" />
-            <el-option label="已停业" value="stopped" />
+            <el-option label="歇业中" value="stopped" />
           </el-select>
         </el-form-item>
         <el-form-item label="预警状态">
@@ -271,8 +270,7 @@
         <el-form-item label="营业状态" prop="status">
           <el-select v-model="formData.status" placeholder="请选择营业状态" style="width: 100%">
             <el-option label="营业中" value="open" />
-            <el-option label="临时关门" value="closed" />
-            <el-option label="已停业" value="stopped" />
+            <el-option label="歇业中" value="stopped" />
           </el-select>
         </el-form-item>
         <el-form-item label="门头照片" prop="doorPhoto">
@@ -1160,7 +1158,7 @@ const handleDownloadTemplate = () => {
     example.join(','),
     '',
     '说明：',
-    '1. 营业状态可选值：open（营业中）、closed（临时关门）、stopped（已停业）',
+    '1. 营业状态可选值：open（营业中）、stopped（歇业中）',
     '2. 经度和纬度为可选字段，用于地图定位',
     '3. 导入时系统会自动将商户归属到当前管理员负责的片区'
   ].join('\n')
@@ -1252,10 +1250,9 @@ const getStatusType = (status) => {
 const getStatusText = (status) => {
   const texts = {
     open: '营业中',
-    closed: '临时关门',
-    stopped: '已停业'
+    stopped: '歇业中'
   }
-  return texts[status] || '未知'
+  return texts[status] || '营业中'
 }
 
 const getWarningType = (level) => {

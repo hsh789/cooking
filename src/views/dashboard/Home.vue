@@ -108,7 +108,7 @@
               </div>
               <div class="legend-item" :style="{ animationDelay: '0.4s' }">
                 <span class="legend-dot gray"></span>
-                <span class="legend-text">停业/关门</span>
+                <span class="legend-text">歇业中</span>
                 <span class="legend-value">{{ gaugeData.gray }}</span>
               </div>
             </div>
