@@ -115,7 +115,7 @@
 
           <!-- 直接指派：选择负责人管理 -->
           <div v-if="assignMode === 'direct'" class="assign-body">
-            <div class="assign-label">选择直接负责人：</div>
+            <div class="assign-label">选择具体负责人：</div>
             <el-select v-model="selectedLevel3Admin" placeholder="请选择负责该商户的负责人管理" style="width: 100%;" filterable>
               <el-option
                 v-for="admin in level3Admins"

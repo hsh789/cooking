@@ -1241,7 +1241,7 @@ const handleCurrentChange = (page) => {
 const getStatusType = (status) => {
   const types = {
     open: 'success',
-    closed: 'warning',
+    closed: 'success',
     stopped: 'info'
   }
   return types[status] || 'info'
